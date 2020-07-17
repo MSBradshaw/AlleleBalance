@@ -13,7 +13,7 @@ class DatabaseAccess:
         alleles TEXT,
         allele_counts TEXT,
         allele_balances TEXT,
-        mode_alleles TEXT,
+        first_alleles TEXT,
         reference_allele TEXT
         );
         """
@@ -40,7 +40,7 @@ class DatabaseAccess:
         :return: None
         """
         df = pd.read_csv(path_to_tsv, sep='\t')
-        get_template = """SELECT allele_balances, allele_counts, alleles, mode_alleles 
+        get_template = """SELECT allele_balances, allele_counts, alleles, first_alleles 
         FROM chromosome_{chrom} WHERE position = {pos} AND genotype = "{genotype}"
         """
         update_template = """ UPDATE chromosome_{chrom}
@@ -48,14 +48,14 @@ class DatabaseAccess:
         allele_balances = "{ab}",
         allele_counts = "{ac}",
         alleles = "{alleles}",
-        mode_alleles = "{ma}"
+        first_alleles = "{ma}"
         WHERE
         position = {pos}
         AND
         genotype = "{genotype}"
         """
         insert_template = """INSERT INTO chromosome_{chrom} 
-        (position, allele_balances, allele_counts, genotype, mode_alleles, alleles)
+        (position, allele_balances, allele_counts, genotype, first_alleles, alleles)
         VALUES ({pos},"{ab}","{ac}","{genotype}","{ma}","{alleles}")
         """
         # for each chromosome
@@ -66,7 +66,7 @@ class DatabaseAccess:
             curs = self.connection.cursor()
             for p in sub['position']:
                 allele_balance = sub.loc[p]['allele_balance']
-                mode_allele = sub.loc[p]['mode_allele']
+                first_alleles = sub.loc[p]['first_allele']
                 allele_count = sub.loc[p]['allele_counts']
                 genotype = sub.loc[p]['genotype']
                 # TODO when genotype calling is added this will no longer be the same information
@@ -78,7 +78,7 @@ class DatabaseAccess:
                     # there is no information at this position and genotype
                     # use the insert template
                     statement = insert_template.format(chrom=c, pos=p, ab=str(allele_balance),
-                                                       ac=str(allele_count), genotype=genotype, ma=mode_allele,
+                                                       ac=str(allele_count), genotype=genotype, ma=first_alleles,
                                                        alleles=alleles)
                     curs.execute(statement)
                 else:
@@ -88,7 +88,7 @@ class DatabaseAccess:
                                                        ab=res[0][0] + ';' + str(allele_balance),
                                                        ac=res[0][1] + ';' + str(allele_count),
                                                        genotype=genotype,
-                                                       ma=res[0][2] + ';' + mode_allele,
+                                                       ma=res[0][2] + ';' + first_alleles,
                                                        alleles=res[0][3] + ';' + alleles)
                     curs.execute(statement)
             # commit changes after each chromosome
@@ -103,17 +103,19 @@ class DatabaseAccess:
         :return: list, [allele balance mean, allele balance standard deviation] or
                  [-1,-1] if there is no information about the desired location
         """
-        get_template = """SELECT allele_balances, allele_counts, alleles, mode_alleles 
+        get_template = """SELECT allele_balances, allele_counts, alleles, first_alleles 
         FROM chromosome_{chrom} WHERE position = {pos} AND genotype = "{genotype}"
         """
         curs = self.connection.cursor()
         statement = get_template.format(chrom=chromosome, pos=position, genotype=genotype)
         curs.execute(statement)
         res = curs.fetchall()
+        # if there are no results, return [-1, -1]
+        if len(res) == 0:
+            return [-1, -1]
         # allele balance is the first item returned from the query
         # here I assume there is only 1 entry that matches the query
         ab = res[0][0]
-        print(ab)
         # split up the string into individual allele balances (';' denotes separation between samples)
         allele_balances = [float(x) for x in ab.split(';')]
         mean = sum(allele_balances) / len(allele_balances)
@@ -122,8 +124,15 @@ class DatabaseAccess:
 
 
 
-da = DatabaseAccess('ab.db')
-# da.update_db_with_tsv('really_small.tsv')
-print(da.get_mean_and_std_dev('1', 14747, 'C/C'))
-# da.print_tables()
+# da = DatabaseAccess('ab.db')
+# for i in range(4):
+#     print()
+#     print()
+#     print()
+#     print()
+#     da.update_db_with_tsv('delete1.tsv')
+# print(da.get_mean_and_std_dev('1', 14747, 'C/C'))
+# curs = da.connection.cursor()
+# curs.execute('SELECT * FROM chromosome_1')
+
 # da.get_allele_balance_population_mean_and_std_dev('1', 0)

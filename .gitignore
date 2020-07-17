@@ -3,3 +3,5 @@ venv/
 *.png
 *.tsv
 *.txt
+__pycache__/
+*.db

@@ -1,7 +1,5 @@
 import re
 import pandas as pd
-from sys import argv
-# from database_access import DatabaseAccess
 import sqlite3
 import numpy as np
 import argparse
@@ -305,8 +303,8 @@ def run_sample(db_path):
 
     out_of_range_count = sum(df['z_score'] >= 3) + sum(df['z_score'] <= -3)
     with open(output_file, 'w') as file:
-        file.write('# number of samples out of range:\t' + str(out_of_range_count))
-    df.to_csv(output_file, mode='a', header=True)
+        file.write('# number of samples out of range:\t' + str(out_of_range_count) + '\n')
+    df.to_csv(output_file, mode='a', header=True, sep='\t')
 
 
 def get_args():

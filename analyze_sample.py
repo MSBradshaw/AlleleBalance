@@ -3,7 +3,7 @@ import pandas as pd
 import sqlite3
 import numpy as np
 import argparse
-
+import glob
 
 class DatabaseAccess:
     def __init__(self, db_path):
@@ -296,6 +296,10 @@ def run_sample(db_path):
 
     pileup_file = '/Users/michael/TESTBAMs/WES10_S21.pileup'
     vcf_file = '/Users/michael/TESTBAMs/NexteraCap-Twist-110465_S35_L001.vcf'
+    output_file = 'ab_report.txt'
+
+    pileup_file = ' sample.pileup'
+    vcf_file = 'sample.vcf'
     output_file = 'output.tsv'
 
     gd = get_genotype_dict_from_vcf(vcf_file)
@@ -320,14 +324,21 @@ def get_args():
                         required=True,
                         help="function to be run: analyze sample `--type analyze` or update db `--type update`")
 
-    parser.add_argument("--input",
-                        dest="input_file",
-                        required=False,
-                        help="tsv file to update the db with. Only used if `--type update`")
-
     args = parser.parse_args()
 
     return args
+
+
+def check_update(files):
+    files_over_thresh = 0
+    for file in files:
+        # the first line of each file has the number of sites out of range in each file
+        for line in open(file, 'r'):
+            out_of_range_count = line.split('\t')[1]
+            if out_of_range_count > 0:
+                files_over_thresh += 1
+            break
+    return files_over_thresh == len(files)
 
 
 with open('allele_balance_log.txt', 'w') as log_file:
@@ -342,14 +353,15 @@ with open('allele_balance_log.txt', 'w') as log_file:
         2. allele_balance_log.txt
         """
         args = vars(get_args())
-        if args['run_type'] == 'update' and 'input_file' == None:
-            print('Error, an input file is required to update the database')
-            log_file.write('Error, an input file is required to update the database\n')
-            quit()
-        elif args['run_type'] == 'update':
+        if args['run_type'] == 'update':
             da = DatabaseAccess(args['db_path'])
-            da.update_db_with_tsv(args['input_file'])
-            pass
+            files = glob.glob('work/*/*/*.tsv')
+            if check_update(files):
+                for file in files:
+                    da.update_db_with_tsv(file)
+            else:
+                log_file.write('Not updating database, too many samples with an abnormal number of imbalanced '
+                               'alleles. Bad batch suspected\n')
         elif args['run_type'] == 'analyze':
             run_sample(args['db_path'])
         else:

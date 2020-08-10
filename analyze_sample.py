@@ -294,10 +294,6 @@ def run_sample(db_path):
        1. ab_report.txt
        """
 
-    pileup_file = '/Users/michael/TESTBAMs/WES10_S21.pileup'
-    vcf_file = '/Users/michael/TESTBAMs/NexteraCap-Twist-110465_S35_L001.vcf'
-    output_file = 'ab_report.txt'
-
     pileup_file = ' sample.pileup'
     vcf_file = 'sample.vcf'
     output_file = 'output.tsv'
@@ -359,6 +355,7 @@ with open('allele_balance_log.txt', 'w') as log_file:
             if check_update(files):
                 for file in files:
                     da.update_db_with_tsv(file)
+                    log_file.write('Updated database with file:' + file + ' \n')
             else:
                 log_file.write('Not updating database, too many samples with an abnormal number of imbalanced '
                                'alleles. Bad batch suspected\n')

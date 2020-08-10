@@ -42,7 +42,7 @@ class DatabaseAccess:
             chromosome	position	genotype	diff	allele_balance	geno_string	number_of_alleles
         :return: None
         """
-        df = pd.read_csv(path_to_tsv, sep='\t')
+        df = pd.read_csv(path_to_tsv, sep='\t', skiprows=1)
         get_template = """SELECT allele_balances, allele_counts, alleles, first_alleles 
         FROM chromosome_{chrom} WHERE position = {pos} AND genotype = "{genotype}"
         """

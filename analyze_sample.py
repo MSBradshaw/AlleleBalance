@@ -4,6 +4,8 @@ import sqlite3
 import numpy as np
 import argparse
 import glob
+import gzip
+
 
 class DatabaseAccess:
     def __init__(self, db_path):
@@ -27,7 +29,7 @@ class DatabaseAccess:
         for c in chromosomes:
             statement = create_chromosome_table_template.format(table='chromosome_' + c)
             print(statement)
-            log_file.write(statement+'\n')
+            log_file.write(statement + '\n')
             a = curs.execute(statement)
 
     def print_tables(self):
@@ -141,91 +143,92 @@ def collect_and_output_genotypes(input_file, output_file, db_path, coverage_thre
     geno_count = 0
     geno_count_unknown = 0
     not_enough_count = 0
-    for line in open(input_file, 'r'):
-        count += 1
-        row = line.split('\t')
+    with gzip.open(input_file, 'rt') as file:
+        for line in file:
+            count += 1
+            row = line.split('\t')
 
-        if row[0] != '1':
-            break
+            if row[0] != '1':
+                break
 
-        ref_allele = row[2]
-        seq = row[4]
-        # if there if not enough coverage, skip it
-        if len(seq) < coverage_threshold:
-            continue
+            ref_allele = row[2]
+            seq = row[4]
+            # if there if not enough coverage, skip it
+            if len(seq) < coverage_threshold:
+                continue
 
-        # remove indel information about bases to follow
-        seq = re.sub('\\+[0-9]+[ACGTNacgtn]', '', seq)
-        seq = re.sub('-[0-9]+[ACGTNacgtn]', '', seq)
+            # remove indel information about bases to follow
+            seq = re.sub('\\+[0-9]+[ACGTNacgtn]', '', seq)
+            seq = re.sub('-[0-9]+[ACGTNacgtn]', '', seq)
 
-        # remove > and < as these represent skips to the reference genome
-        seq = seq.replace('>', '').replace('<', '')
-        # remove * which denote gap in the read
-        seq = seq.replace('*', '')
-        # remove $ which denote end of a read
-        seq = seq.replace('$', '')
-        # remove beginning of read marker and the quality character that follows
-        seq = re.sub('\\^.', '', seq)
+            # remove > and < as these represent skips to the reference genome
+            seq = seq.replace('>', '').replace('<', '')
+            # remove * which denote gap in the read
+            seq = seq.replace('*', '')
+            # remove $ which denote end of a read
+            seq = seq.replace('$', '')
+            # remove beginning of read marker and the quality character that follows
+            seq = re.sub('\\^.', '', seq)
 
-        # what portion of reads come from the forward stand?
-        strand_bias = sum(x == '.' or x.isupper() for x in seq) / len(seq)
+            # what portion of reads come from the forward stand?
+            strand_bias = sum(x == '.' or x.isupper() for x in seq) / len(seq)
 
-        seq = seq.upper()
-        seq = seq.replace(',', ref_allele)
-        seq = seq.replace('.', ref_allele)
+            seq = seq.upper()
+            seq = seq.replace(',', ref_allele)
+            seq = seq.replace('.', ref_allele)
 
-        # count of the occurrence of each allele
-        seq_list = [char for char in seq]
-        alleles = list(set(seq_list))
-        allele_counts = [seq_list.count(x) for x in alleles]
+            # count of the occurrence of each allele
+            seq_list = [char for char in seq]
+            alleles = list(set(seq_list))
+            allele_counts = [seq_list.count(x) for x in alleles]
 
-        # sort alleles alphabetically
-        alleles, allele_counts = zip(*sorted(zip(alleles, allele_counts)))
+            # sort alleles alphabetically
+            alleles, allele_counts = zip(*sorted(zip(alleles, allele_counts)))
 
-        # get the genotype
-        genotype = None
-        if str(row[1]) in geno_dict[str(row[0])]:
-            genotype = geno_dict[str(row[0])][str(row[1])]
-            geno_count += 1
-        else:
-            genotype = row[2] + '/' + row[2]
-            geno_count_unknown += 1
+            # get the genotype
+            genotype = None
+            if str(row[1]) in geno_dict[str(row[0])]:
+                genotype = geno_dict[str(row[0])][str(row[1])]
+                geno_count += 1
+            else:
+                genotype = row[2] + '/' + row[2]
+                geno_count_unknown += 1
 
-        # calc AB as mode count / all count
-        first_allele = genotype.split('/')[0]
-        try:
-            index = alleles.index(first_allele)
-        except ValueError:
-            log_file.write('Error: genotype not found in alleles\n')
-            log_file.write(str(first_allele)+'\n')
-            log_file.write(str(row) + '\n\n')
-            log_file.write('Error: genotype not found in alleles\n')
+            # calc AB as mode count / all count
+            first_allele = genotype.split('/')[0]
+            try:
+                index = alleles.index(first_allele)
+            except ValueError:
+                log_file.write('Error: genotype not found in alleles\n')
+                log_file.write(str(first_allele) + '\n')
+                log_file.write(str(row) + '\n\n')
+                log_file.write('Error: genotype not found in alleles\n')
 
-        # calculate allele balance
-        ab = allele_counts[index] / sum(allele_counts)
+            # calculate allele balance
+            ab = allele_counts[index] / sum(allele_counts)
 
-        # calc score for each site
-        mean_std_arr = da.get_mean_and_std_dev(row[0], int(row[1]), genotype)
-        z_score = -1
-        if -1 in mean_std_arr:
-            not_enough_count += 1
-            log_file.write('Not enough info in DB to calculate Z-score\n')
-        else:
-            # caluclate the z-score, z = (x - mean) / standard deviation
-            z_score = (ab - mean_std_arr[0]) / mean_std_arr[1]
+            # calc score for each site
+            mean_std_arr = da.get_mean_and_std_dev(row[0], int(row[1]), genotype)
+            z_score = -1
+            if -1 in mean_std_arr:
+                not_enough_count += 1
+                log_file.write('Not enough info in DB to calculate Z-score\n')
+            else:
+                # caluclate the z-score, z = (x - mean) / standard deviation
+                z_score = (ab - mean_std_arr[0]) / mean_std_arr[1]
 
-        ab_info['chromosome'].append(row[0])
-        ab_info['position'].append(row[1])
-        ab_info['reference_allele'].append(row[3])
-        ab_info['allele_balance'].append(ab)
-        ab_info['num_alleles'].append(len(alleles))
-        ab_info['first_allele'].append(alleles[index])
-        # genotype will be formatted like this: 'A/C' or 'T/T'
-        ab_info['genotype'].append(genotype)
-        ab_info['alleles'].append('/'.join(alleles))
-        ab_info['allele_counts'].append(','.join([str(x) for x in allele_counts]))
-        ab_info['z_score'].append(z_score)
-        ab_info['strand_bias'].append(strand_bias)
+            ab_info['chromosome'].append(row[0])
+            ab_info['position'].append(row[1])
+            ab_info['reference_allele'].append(row[3])
+            ab_info['allele_balance'].append(ab)
+            ab_info['num_alleles'].append(len(alleles))
+            ab_info['first_allele'].append(alleles[index])
+            # genotype will be formatted like this: 'A/C' or 'T/T'
+            ab_info['genotype'].append(genotype)
+            ab_info['alleles'].append('/'.join(alleles))
+            ab_info['allele_counts'].append(','.join([str(x) for x in allele_counts]))
+            ab_info['z_score'].append(z_score)
+            ab_info['strand_bias'].append(strand_bias)
 
     df = pd.DataFrame(ab_info)
     df.to_csv(output_file, sep='\t')
@@ -299,7 +302,7 @@ def run_sample(db_path, pileup_path, vcf_path):
     output_file = 'output.tsv'
 
     gd = get_genotype_dict_from_vcf(vcf_file)
-    df = collect_and_output_genotypes(pileup_file, output_file, db_path,40, gd)
+    df = collect_and_output_genotypes(pileup_file, output_file, db_path, 40, gd)
 
     out_of_range_count = sum(df['z_score'] >= 3) + sum(df['z_score'] <= -3)
     with open(output_file, 'w') as file:
@@ -370,8 +373,9 @@ with open('allele_balance_log.txt', 'w') as log_file:
                 log_file.write('Not updating database, too many samples with an abnormal number of imbalanced '
                                'alleles. Bad batch suspected\n')
         elif args['run_type'] == 'analyze':
-            run_sample(args['db_path'])
+            run_sample(args['db_path'], args['pileup'], args['vcf'])
         else:
             print('Invalid `--type`. To analyze a sample use `--type analyze` or to update the db `--type update`')
-            log_file.write('Invalid `--type`. To analyze a sample use `--type analyze` or to update the db `--type update`\n')
+            log_file.write(
+                'Invalid `--type`. To analyze a sample use `--type analyze` or to update the db `--type update`\n')
             quit()

@@ -294,7 +294,7 @@ def run_sample(db_path):
        1. ab_report.txt
        """
 
-    pileup_file = ' sample.pileup'
+    pileup_file = 'sample.pileup'
     vcf_file = 'sample.vcf'
     output_file = 'output.tsv'
 
@@ -314,6 +314,16 @@ def get_args():
                         dest="db_path",
                         required=True,
                         help="path to exome or genome sqlite db")
+
+    parser.add_argument("--pileup",
+                        dest="pileup",
+                        required=True,
+                        help="path pileup file")
+
+    parser.add_argument("--vcf",
+                        dest="vcf",
+                        required=True,
+                        help="path vcf file")
 
     parser.add_argument("--type",
                         dest="run_type",

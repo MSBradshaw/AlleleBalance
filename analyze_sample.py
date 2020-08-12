@@ -284,7 +284,7 @@ def get_genotype_dict_from_vcf(vcf: str) -> dict:
     return geno_dict
 
 
-def run_sample(db_path):
+def run_sample(db_path, pileup_path, vcf_path):
     """
        Required Files
        1. sample.pileup
@@ -294,8 +294,8 @@ def run_sample(db_path):
        1. ab_report.txt
        """
 
-    pileup_file = 'sample.pileup'
-    vcf_file = 'sample.vcf'
+    pileup_file = pileup_path
+    vcf_file = vcf_path
     output_file = 'output.tsv'
 
     gd = get_genotype_dict_from_vcf(vcf_file)
@@ -317,12 +317,12 @@ def get_args():
 
     parser.add_argument("--pileup",
                         dest="pileup",
-                        required=True,
+                        required=False,
                         help="path pileup file")
 
     parser.add_argument("--vcf",
                         dest="vcf",
-                        required=True,
+                        required=False,
                         help="path vcf file")
 
     parser.add_argument("--type",

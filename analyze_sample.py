@@ -187,6 +187,12 @@ def collect_and_output_genotypes(input_file, output_file, db_path, coverage_thre
 
             # get the genotype
             genotype = None
+            log_file.write('***')
+            log_file.write(str(row)+'\n')
+            log_file.write(str(geno_dict.keys())+'\n')
+            if str(row[0]) not in geno_dict:
+                log_file.write('Error chromosome not found in  vcf: ' + str(row[0]))
+                continue
             if str(row[1]) in geno_dict[str(row[0])]:
                 genotype = geno_dict[str(row[0])][str(row[1])]
                 geno_count += 1
@@ -205,6 +211,9 @@ def collect_and_output_genotypes(input_file, output_file, db_path, coverage_thre
                 log_file.write('Error: genotype not found in alleles\n')
 
             # calculate allele balance
+            log_file.write('\n')
+            log_file.write(str(index))
+            log_file.write(str(allele_counts))
             ab = allele_counts[index] / sum(allele_counts)
 
             # calc score for each site
@@ -251,40 +260,45 @@ def get_genotype_dict_from_vcf(vcf: str) -> dict:
     """
     # dictionary of dictionaries with chromosome as the first key and position as the second
     geno_dict = {}
-    for line in open(vcf, 'r'):
-        # skip headers
-        if line[:1] == '#':
-            continue
-        row = line.split('\t')
-        ref = row[3]
-        alt = row[4]
-        chrom = row[0]
-        pos = row[1]
-        numerical_genotype = row[9].split(':')[0]
-        numerical_genotype = numerical_genotype.replace('|', '/')
-        genotype = ''
-        if numerical_genotype == '1/1':
-            genotype = alt[0] + '/' + alt[0]
-        elif numerical_genotype == '0/1':
-            genotype = ref[0] + '/' + alt[0]
-        elif numerical_genotype == '1/2':
-            alleles = row[4].split(',')
-            alleles = [x[0] for x in alleles]
-            # reverse soring so they get joined in the right order
-            alleles.sort(reverse=True)
-            genotype = '/'.join(alleles)
-        else:
-            log_file.write('Unknown genotype in get_genotype_dict_from_vcf:\t')
-            log_file.write(str(numerical_genotype) + '\n')
-            print('ERROR')
-            print(numerical_genotype)
-            genotype = 'ERROR'
-        # if a the chromosome has not been seen before, create a new entry for it
-        if chrom not in geno_dict:
-            geno_dict[chrom] = {}
-        # add the genotype in for the chromosome and position
-        geno_dict[chrom][pos] = genotype
+    with gzip.open(vcf, 'rt') as file:
+        for line in file:
+            # skip headers
+            if line[:1] == '#':
+                continue
+            row = line.split('\t')
+            log_file.write(str(row) + '\n')
+            ref = row[3]
+            alt = row[4]
+            chrom = row[0]
+            pos = row[1]
+            numerical_genotype = row[9].split(':')[0]
+            numerical_genotype = numerical_genotype.replace('|', '/')
+            genotype = ''
+            if numerical_genotype == '1/1':
+                genotype = alt[0] + '/' + alt[0]
+            elif numerical_genotype == '0/1':
+                genotype = ref[0] + '/' + alt[0]
+            elif numerical_genotype == '1/2':
+                alleles = row[4].split(',')
+                alleles = [x[0] for x in alleles]
+                # reverse sorting so they get joined in the right order
+                alleles.sort(reverse=True)
+                genotype = '/'.join(alleles)
+            elif numerical_genotype == '0/0':
+                genotype = ref[0] + '/' + ref[0]
+            else:
+                log_file.write('Unknown genotype in get_genotype_dict_from_vcf:\t')
+                log_file.write(str(numerical_genotype) + '\n')
+                print('ERROR')
+                print(numerical_genotype)
+                genotype = 'ERROR'
+            # if a the chromosome has not been seen before, create a new entry for it
+            if chrom not in geno_dict:
+                geno_dict[chrom] = {}
+            # add the genotype in for the chromosome and position
+            geno_dict[chrom][pos] = genotype
     return geno_dict
+
 
 
 def run_sample(db_path, pileup_path, vcf_path):
@@ -350,7 +364,7 @@ def check_update(files):
     return files_over_thresh == len(files)
 
 
-with open('allele_balance_log.txt', 'w') as log_file:
+with open('allele_balance_log.txt', 'a') as log_file:
     if __name__ == "__main__":
         """
         Required Files

@@ -9,9 +9,11 @@ There are two main uses for this program.
 ## Command line parameters
 `--type` (required) function to be run: analyze sample `--type analyze` or update db `--type update`
 
-`--db` (required) path to the sqlite database to be used
+`--db` (required) path to the sqlite database to be used. There should be a separate database for exomes and genomes.
 
-`--input` (required if using `--type update`) path to input tsv file to update the sqlite database. Input file should be formatted like the output of `--type analyze`
+`--vcf` (required if using `--type analyze`) path vcf file to be used
+
+`--pileup` (required if using `--type analyze`) path pileup.gz (note that it is expected to be compressed) file to be used
 
 ## Analyze Sample
 This function assumes that several files exist in the working directory
@@ -49,7 +51,7 @@ There is one table for each chromosome (1-22, x and y)  named like `chromosome_1
 
 Analyze a sample in the current directory
 
-`python --type analyze --db path/to/exomes.db`
+`python --type analyze --db path/to/exomes.db --vcf path/to/sample.vcf --pileup path/to/sample.pileup.gz`
 
 Update the database
 

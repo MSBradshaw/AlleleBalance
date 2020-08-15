@@ -147,9 +147,6 @@ def collect_and_output_genotypes(input_file, output_file, db_path, coverage_thre
             count += 1
             row = line.split('\t')
 
-            if row[0] != '1':
-                break
-
             ref_allele = row[2]
             seq = row[4]
             # if there if not enough coverage, skip it
@@ -206,6 +203,13 @@ def collect_and_output_genotypes(input_file, output_file, db_path, coverage_thre
                 log_file.write(str(row) + '\n\n')
                 log_file.write('Error: genotype not found in alleles\n')
 
+            if genotype == 'ERROR':
+                log_file.write('Error: genotype from VCF is ERROR: ' + line + '\n')
+                continue
+
+            if index >= len(allele_counts):
+                log_file.write('Error: The genotype called is not present in the alleles ' + line + '\n')
+                continue
             # calculate allele balance
             ab = allele_counts[index] / sum(allele_counts)
 
@@ -233,7 +237,6 @@ def collect_and_output_genotypes(input_file, output_file, db_path, coverage_thre
             ab_info['strand_bias'].append(strand_bias)
 
     df = pd.DataFrame(ab_info)
-    df.to_csv(output_file, sep='\t')
 
     out_of_range_count = sum(df['z_score'] >= 3) + sum(df['z_score'] <= -3)
     with open(output_file, 'w') as file:
@@ -291,8 +294,77 @@ def get_genotype_dict_from_vcf(vcf: str) -> dict:
     return geno_dict
 
 
+def get_numerical_genotype_dict_from_vcf(vcf: str) -> dict:
+    """
+    Create a dictionary of the numerical genotypes in the given vcf file. Dictionary is formated as:
+    a dictionary of dictionaries with chromosome (string) as the first key and position as the second
+    :param vcf: path to vcf file
+    :return: dictionary of genotypes
+    """
+    # dictionary of dictionaries with chromosome as the first key and position as the second
+    geno_dict = {}
+    with gzip.open(vcf, 'rt') as file:
+        for line in file:
+            # skip headers
+            if line[:1] == '#':
+                continue
+            row = line.split('\t')
+            log_file.write(str(row) + '\n')
+            ref = row[3]
+            alt = row[4]
+            chrom = row[0]
+            pos = row[1]
+            numerical_genotype = row[9].split(':')[0]
+            numerical_genotype = numerical_genotype.replace('|', '/')
+            # if a the chromosome has not been seen before, create a new entry for it
+            if chrom not in geno_dict:
+                geno_dict[chrom] = {}
+            # add the genotype in for the chromosome and position
+            geno_dict[chrom][pos] = numerical_genotype
+    return geno_dict
 
-def run_sample(db_path, pileup_path, vcf_path):
+
+def make_fingerprint_report(df, vcf, fingerprint):
+    """
+    Give a dataframe witb allele balance information, a vcf and .bed file: creates an allele balance report for the
+    sites listed in the .bed file :param df: DataFrame formatted like the output of collect_and_output_genotypes
+    :param vcf: path to vcf.gz file :param fingerprint: path to .bed file :return: None
+    """
+    df = pd.read_csv('output.tsv', sep='\t', skiprows=1)
+    vcf = '/Users/michael/TESTBAMs/sample.vcf.gz'
+    fingerprint = 'HighQualitySnps.bed'
+    ngd = get_numerical_genotype_dict_from_vcf(vcf)
+
+    high_quality_report = {'chromosome': [], 'position': [], 'genotype': [], 'numerical_genotype': [],
+                           'allele_balance': [], 'z_score': []}
+    current_chr = ''
+    df['chromosome'] = [str(x) for x in df['chromosome']]
+    for line in open(fingerprint, 'r'):
+        row = line.split()
+        chr = str(row[0].replace('chr', ''))
+        pos = int(row[1])
+        if current_chr != chr:
+            sub = df[df['chromosome'] == chr]
+            current_chr = chr
+        subsub = sub[sub['position'] == pos]
+        if len(subsub) != 0 and str(pos) in ngd[chr]:
+            high_quality_report['chromosome'].append(subsub['chromosome'])
+            high_quality_report['position'].append(subsub['position'])
+            high_quality_report['genotype'].append(subsub['genotype'])
+            high_quality_report['numerical_genotype'].append(ngd[chr][str(pos)])
+            high_quality_report['allele_balance'].append(subsub['allele_balance'])
+            high_quality_report['z_score'].append(subsub['z_score'])
+        else:
+            high_quality_report['chromosome'].append(subsub['chromosome'])
+            high_quality_report['position'].append(subsub['position'])
+            high_quality_report['genotype'].append('NOT FOUND')
+            high_quality_report['numerical_genotype'].append('NOT FOUND')
+            high_quality_report['allele_balance'].append('NOT FOUND')
+            high_quality_report['z_score'].append('NOT FOUND')
+    pd.DataFrame(high_quality_report).to_csv('fingerprint.tsv', sep='\t')
+
+
+def run_sample(db_path, pileup_path, vcf_path, fingerprint=None):
     """
        Required Files
        1. sample.pileup
@@ -314,6 +386,12 @@ def run_sample(db_path, pileup_path, vcf_path):
         file.write('# number of samples out of range:\t' + str(out_of_range_count) + '\n')
     df.to_csv(output_file, mode='a', header=True, sep='\t')
 
+    # if no finger printing .bed file is provided go ahead and return
+    if fingerprint is None:
+        return
+    else:
+        make_fingerprint_report(df, vcf_file, fingerprint)
+
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -332,6 +410,12 @@ def get_args():
                         dest="vcf",
                         required=False,
                         help="path vcf file")
+
+    parser.add_argument("--fingerprint",
+                        dest="fingerprint",
+                        required=False,
+                        help="path to a .bed file of locations to be reported in the fingerprint report ("
+                             "fingerprint.tsv). This parameter is only used if using `--type analyze` and is optional")
 
     parser.add_argument("--type",
                         dest="run_type",
@@ -390,7 +474,7 @@ with open('allele_balance_log.txt', 'a') as log_file:
                 log_file.write('Not updating database, too many samples with an abnormal number of imbalanced '
                                'alleles. Bad batch suspected\n')
         elif args['run_type'] == 'analyze':
-            run_sample(args['db_path'], args['pileup'], args['vcf'])
+            run_sample(args['db_path'], args['pileup'], args['vcf'], args['fingerprint'])
         else:
             print('Invalid `--type`. To analyze a sample use `--type analyze` or to update the db `--type update`')
             log_file.write(

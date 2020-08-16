@@ -19,6 +19,9 @@ There are two main uses for this program.
 
 `--fingerprint` (optional and ignored if not using `--type analyze` ) path to .bed of sites to specifically be reported on for fingerprinting. Report will be saved as 'fingerprint.tsv' 
 
+`--force_update` (optional and ignored if not using `--type update`) If this parameter is set to `--force_update true` and you are using `--type update` the it will force the db to update it self with the given input files even if they do not meet the threshold requirements
+
+
 ## Analyze Sample
 To use this function you must specific `--type analyze`
 
@@ -68,8 +71,17 @@ There is one table for each chromosome (1-22, x and y)  named like `chromosome_1
 
 Analyze a sample in the current directory
 
-`python --type analyze --db path/to/exomes.db --vcf path/to/sample.vcf --pileup path/to/sample.pileup.gz`
+`python --type analyze --db path/to/exomes.db --vcf path/to/sample.vcf.gz --pileup path/to/sample.pileup.gz`
+
+Analyze a sample in the current directory + create a fingerprint report
+
+`python --type analyze --db path/to/exomes.db --vcf path/to/sample.vcf.gz --pileup path/to/sample.pileup.gz --fingerprint HighQualitySnps.bed` 
+
 
 Update the database
 
 `python --type update --db path/to/exomes.db --input results/sample_1/output.tsv,results/sample_2/output.tsv`
+
+Force update the database
+
+`python --type update --force_update true --db path/to/exomes.db --input results/sample_1/output.tsv,results/sample_2/output.tsv`

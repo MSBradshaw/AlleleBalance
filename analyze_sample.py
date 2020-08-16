@@ -473,7 +473,6 @@ with open('allele_balance_log.txt', 'a') as log_file:
                 quit()
             files = args['inputs'].split(',')
             files = [x for x in files if x != '']
-            print(args['force_update'])
             if check_update(files) or args['force_update'] == 'true':
                 for file in files:
                     da.update_db_with_tsv(file)

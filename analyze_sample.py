@@ -464,6 +464,7 @@ with open('allele_balance_log.txt', 'a') as log_file:
                                'https://github.com/MSBradshaw/AlleleBalance\n')
                 quit()
             files = args['inputs'].split(',')
+            files = [x for x in files if x != '']
             if check_update(files):
                 for file in files:
                     da.update_db_with_tsv(file)

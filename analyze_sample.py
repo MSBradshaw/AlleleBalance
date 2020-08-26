@@ -536,6 +536,10 @@ def get_args():
 
 
 def check_update(files):
+    """
+    :param files: list of files to check if they meet the requirements to update the db
+    :return: true or false (true if the db should be update with these files)
+    """
     files_over_thresh = 0
     for file in files:
         # the first line of each file has the number of sites out of range in each file

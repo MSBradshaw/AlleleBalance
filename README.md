@@ -7,7 +7,7 @@ There are two main uses for this program.
 2. Update the sqlite database for tracking AB across many samples
 
 ## Command line parameters
-`--type` (required) function to be run: analyze sample `--type analyze` or update db `--type update`
+`--type` (required) function to be run: analyze sample `--type analyze` or update db `--type update` or query information from db query the db with `--type query`
 
 `--db` (required) path to the sqlite database to be used. There should be a separate database for exomes and genomes.
 
@@ -20,6 +20,10 @@ There are two main uses for this program.
 `--fingerprint` (optional and ignored if not using `--type analyze` ) path to .bed of sites to specifically be reported on for fingerprinting. Report will be saved as `fingerprint.tsv` 
 
 `--force_update` (optional and ignored if not using `--type update`) If this parameter is set to `--force_update true` and you are using `--type update` the it will force the db to update it self with the given input files even if they do not meet the threshold requirements
+
+`--samples` (option and ignored if not using `--type query`) comma separated list of sample names to be pull allele balance information from the database on. Only use if using `--type query`
+
+`--name` (required if using `--type analyze`) the name of the sample used as a label in output files and in db
 
 
 ## Analyze Sample
@@ -71,16 +75,29 @@ The tables in the database are formatted with the following statement:
 There is one table for each chromosome (1-22, x and y)  named like `chromosome_1` or `chromosome_x`
 
 If you want to force update the database with data that otherwise would not pass the threshold requirements (such as in the event it is empty) use `--force_update true`.
+
+## Query DB
+To use this function you must specific `--type query`
+
+Required parametes:
+1. `--samples`
+
+
+You can use `--type query` to compare a list of samples at their common sites to all other samples at those sites
+This functionality will produce a file, `query_results.tsv` with the following columns: chromosome, position, genotype, numerical_genotype, population_size, p_value, avg_allele_balance_difference
+The resulting `p_value` columns is a result of comparing the samples listed in the `--samples` parameter to the results of the population in the db at that site. 
+Similarly the column `avg_allele_balance_difference` is a comparision of allele balance means of the listed samples and remaining population.
  
+
 ## Usage Examples
 
 Analyze a sample in the current directory
 
-`python --type analyze --db path/to/exomes.db --vcf path/to/sample.vcf.gz --pileup path/to/sample.pileup.gz`
+`python --type analyze --db path/to/exomes.db --name test_sample_1 --vcf path/to/sample.vcf.gz --pileup path/to/sample.pileup.gz`
 
 Analyze a sample in the current directory + create a fingerprint report
 
-`python --type analyze --db path/to/exomes.db --vcf path/to/sample.vcf.gz --pileup path/to/sample.pileup.gz --fingerprint HighQualitySnps.bed` 
+`python --type analyze --db path/to/exomes.db --name test_sample_1 --vcf path/to/sample.vcf.gz --pileup path/to/sample.pileup.gz --fingerprint HighQualitySnps.bed` 
 
 
 Update the database
@@ -90,3 +107,7 @@ Update the database
 Force update the database
 
 `python --type update --force_update true --db path/to/exomes.db --input results/sample_1/output.tsv,results/sample_2/output.tsv`
+
+Query the database
+
+`python --type query --db path/to/exomes.db --samples test_sample_1,test_sample_2`

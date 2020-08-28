@@ -1,3 +1,4 @@
+#!/usr/bin/env /scratch/Shares/layer/workspace/michael_sandbox/Python-3.8.5/python
 import re
 import pandas as pd
 import sqlite3
@@ -246,6 +247,9 @@ def collect_and_output_genotypes(input_file, output_file, db_path, coverage_thre
             seq = re.sub('\\^.', '', seq)
 
             # what portion of reads come from the forward stand?
+            if len(seq) == 0:
+                log_file.write('Error line has no sequence length: ' + line)
+                continue
             strand_bias = sum(x == '.' or x.isupper() for x in seq) / len(seq)
 
             seq = seq.upper()

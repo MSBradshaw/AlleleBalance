@@ -25,6 +25,7 @@ There are two main uses for this program.
 
 `--name` (required if using `--type analyze`) the name of the sample used as a label in output files and in db
 
+`--ignore_vcf` (optional) if using `--type analyze` and `--fingerprinting` this will not pull numerical genotypes from the vcf for the finger printing file and will instead just pull relevant lines from output.tsv
 
 ## Analyze Sample
 To use this function you must specific `--type analyze`

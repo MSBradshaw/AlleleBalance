@@ -7,3 +7,6 @@ __pycache__/
 *.db
 *.bed
 *.db-journal
+*.gz
+*.vcf
+*.pileup
